@@ -1,6 +1,10 @@
 from math import sqrt
 
 
+def normalize(vector):
+    return [float(i)/sum(vector) for i in vector]
+
+
 class Vector2D:
     def __init__(self, x, y):
         self.x = x
