@@ -32,6 +32,9 @@ class Vector2D:
         else:
             return Vector2D(self.x * other.x, self.y * other.y)
 
+    def __copy__(self):
+        return Vector2D(self.x, self.y)
+
     def add(self, other):
         return Vector2D(self.x + other.x, self.y + other.y)
 
