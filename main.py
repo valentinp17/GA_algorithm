@@ -1,196 +1,151 @@
-import pygame
-import sys
 import random
-from pygame import HWSURFACE, DOUBLEBUF, RESIZABLE, SRCALPHA
-from pygame import gfxdraw
 
+import matplotlib.pyplot as plt
+from plotly import tools
 
-from circle import Circle
+from genetic_algorithm import GeneticAlgorithm
 from vector2d import Vector2D
-from robot import Robot
-
-COLORS = {
-    'black': (0, 0, 0),
-    'white': (255, 255, 255),
-    'gray': (195, 195, 195),
-    'red': (255, 0, 0),
-    'green': (0, 255, 0),
-}
-COEFFICIENT = 8 # 1 pixel = COEFF
-MAX_F = 5
+import time
+import plotly.offline as py
+import plotly.graph_objs as go
+from circle import Circle
 
 
-class Simulation:
-    def __init__(self, primary_vectors):
-        pygame.init()
+def get_shapes(path, color):
+    shapes = []
+    for i in range(len(path) - 1):
+        shapes.append({
+            'type': 'line',
+            'x0': path[i].x,
+            'y0': path[i].y,
+            'x1': path[i + 1].x,
+            'y1': path[i + 1].y,
+            'line': {
+                'color': f'rgb({color[0]}, {color[1]}, {color[2]})',
+                'width': 4,
+                'dash': 'dashdot',
+            },
+        })
+    return shapes
 
-        self.screen_size = (1000, 1000)
-        self.screen = pygame.display.set_mode(self.screen_size, HWSURFACE|DOUBLEBUF|RESIZABLE|SRCALPHA)
-        self.screen.fill(COLORS['white'])
-        pygame.display.set_caption('AG Algorithm')
-        self.font = pygame.font.Font(None, 30)
-        self.is_pause = False
-        self.current_generation = 0
+def draw_path_plot(circles, path):
+    trace1 = go.Scatter()
 
-        self.clock = pygame.time.Clock()
-        self.population = create_initial_population(500, primary_vectors)
+    shapes = []
+    for circle in circles:
+        shapes.append({
+            'type': 'circle',
+            'xref': 'x',
+            'yref': 'y',
+            'fillcolor': 'rgba(255, 80, 80, 0.7)',
+            'x0': circle.position.x - circle.radius,
+            'y0': circle.position.y - circle.radius,
+            'x1': circle.position.x + circle.radius,
+            'y1': circle.position.y + circle.radius,
+            'line': {
+                'color': 'rgba(255, 80, 80, 1)',
+            },
+        },
+    )
 
-        self.init_sim()
-
-    def check_input(self, event):
-        if event.key == pygame.K_SPACE:
-            if self.is_pause:
-                self.is_pause = False
-            else:
-                self.is_pause = True
-
-
-    def init_sim(self):
-        pass
-
-    def update_sim(self, circles):
-        counter_alive_robots = 0
-        for robot in self.population:
-
-            if robot.is_alive:
-                #print(robot, robot.current_step)
-                robot.make_step(circles)
-                counter_alive_robots += 1
-            else:
-                pass
-
-
-        if counter_alive_robots == 0:
-            self.population = next_generation(self.population, 50, 0.5)
-
-            self.current_generation += 1
-            #print(self.current_generation)
+    for i in range(len(path) - 1):
+        shapes.append({
+            'type': 'line',
+            'x0': path[i].x,
+            'y0': path[i].y,
+            'x1': path[i + 1].x,
+            'y1': path[i + 1].y,
+            'line': {
+                'color': 'rgb(50, 171, 96)',
+                'width': 1,
+                'dash': 'dot',
+            },
+        })
 
 
 
-    def draw_objects(self, circles):
-        for circle in circles:
-            pygame.gfxdraw.filled_circle(self.screen, int(circle.position.x), int(circle.position.y),
-                                         circle.radius, (255, 0, 0, 255))
-
-        for robot in self.population:
-            if robot.is_alive:
-                robot_color = (0, 255, 0, 100)
-            else:
-                robot_color = (100, 100, 100, 100)
-            pygame.gfxdraw.filled_circle(self.screen, int(robot.position.x), int(robot.position.y),
-                                         8, robot_color)
-        self.draw_grid()
-
-    def draw_info(self):
-        text = self.font.render(f'Generation:{self.current_generation}', 1, (0, 0, 0))
-        self.screen.blit(text, (10, 10))
+    layout1 = {
+        'title': 'Robot Path',
+        'xaxis': {
+            'range': [0, 1],
+            'zeroline': False,
+        },
+        'yaxis': {
+            'range': [0, 1]
+        },
+        'width': 800,
+        'height': 800,
+        'shapes': shapes,
+    }
 
 
-    def draw_background(self):
-        self.screen.fill(COLORS['white'])
 
-    def draw_grid(self):
-        pygame.draw.line(self.screen, COLORS['gray'], (100, 100),
-                         (100, 900), 5)
-        pygame.draw.line(self.screen, COLORS['gray'], (100, 100),
-                         (900, 100), 5)
-        pygame.draw.line(self.screen, COLORS['gray'], (900, 100),
-                         (900, 900), 5)
-        pygame.draw.line(self.screen, COLORS['gray'], (100, 900),
-                         (900, 900), 5)
+    data = [trace1]
+    fig = go.Figure(data=data, layout=layout1)
+    py.plot(fig, filename='shapes-circle.html')
 
-    def run(self, circles):
-        while True:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    sys.exit()
-                elif event.type == pygame.KEYDOWN:
-                    self.check_input(event)
-                elif event.type == pygame.VIDEORESIZE:
-                    pass
+def draw_fitness_plot(settings, result):
+    trace = go.Scatter(
+        x=[x for x in range(settings['generations'])],
+        y=[x.position.distance(Vector2D(1, 1)) for x in result],
+        mode='lines'
+    )
 
-            self.clock.tick()
+    layout = go.Layout(
+        xaxis= dict(
+            title= f'Population<br>'
+                   f'Population: {settings["population_size"]}, Mutate rate: {settings["mutate_rate"]}, Generations: {settings["generations"]}',
+        ),
+        yaxis= dict(
+            title= 'Distance to (1, 1)',
+        )
+    )
 
-            if not self.is_pause:
-                #pygame.time.delay(100)
-                self.update_sim(circles)
-                self.draw_background()
-                self.draw_objects(circles)
-                self.draw_info()
+    fig = go.Figure(data=[trace], layout=layout)
+    py.plot(fig, filename='fitness_plot.html')
 
-            pygame.display.flip()
-
-
-def create_route(vectors):
-    route = random.sample(vectors[:], len(vectors))
-    return route
-
-
-def create_initial_population(population_size, vectors):
-    population = []
-    for i in range(population_size):
-        r = Robot(100, 100)
-        r.add_route(create_route(vectors))
-        population.append(r)
-    return population
-
-
-def get_ranked_robots(population):
-    return sorted(population, key=lambda x: x.fitness, reverse=True)[:]
-
-
-def selection(population_ranked, elite_size):
-    """
-        Наверно надо что-то получше здесь придумать
-    """
-    selection_results = population_ranked[:elite_size]
-    return selection_results[:]
-
-
-def mutate(robot, mutation_rate):
-    for i in range(len(robot.route)):
-        if random.random() < mutation_rate:
-            changing_vector = random.randint(0, len(robot.route) - 1)
-            robot.route[changing_vector] = robot.route[changing_vector] * \
-                                          Vector2D(random.random(), random.random())
-    return robot.__copy__()
-
-
-def mutate_population(population, mutation_rate):
-    return [mutate(robot.__copy__(), mutation_rate) for robot in population]
-
-
-def next_generation(current_generation, elite_size, mutation_rate):
-    pop_ranked = get_ranked_robots(current_generation)
-    selection_results = selection(pop_ranked, elite_size)
-    next_generation = []
-    for i in range(0, 5):
-        next_generation.extend(mutate_population(selection_results[:], mutation_rate)[:])
-    for robot in next_generation:
-        robot.reset(100, 100)
-    return next_generation
-
-
-def genetic_algorithm(population, pop_size, elite_size, mutation_rate, generations):
-    pop = create_initial_population(pop_size, primary_vectors)
-    for i in range(generations):
-        pop = next_generation(pop, elite_size, mutation_rate)
-
-    best_robot = get_ranked_robots(pop)[0]
-    return  best_robot
-
-def create_random_vector():
-    x = random.random()
-    return Vector2D(x, 1 - x)
-
-def get_random_force(max_force):
-    return random.random() * max_force
 
 if __name__ == '__main__':
-    circles = [Circle(100, 900, 300), Circle(700, 500, 300)]
-    primary_vectors = [create_random_vector() * get_random_force(MAX_F) for x in range(100)]
-    #best_robot = genetic_algorithm(primary_vectors, 100, 50, 0.1, 1000)
-    #print(best_robot, best_robot.fitness)
-    Simulation(primary_vectors).run(circles)
+
+    settings = {
+        'population_size': 1000,
+        'elite_size': 200,
+        'mutate_rate': 0.2,
+        'generations': 1000,
+        'max_force': 1,
+        'circles': [
+            Circle(0.5, 0.5, 0.1), Circle(0.7, 0.7, 0.1), Circle(0.3, 0.7, 0.1),
+            Circle(0.3, 0.3, 0.1), Circle(0.7, 0.3, 0.1),
+        ]
+    }
+
+
+    start_time = time.time()
+    genetic_algo = GeneticAlgorithm(settings['population_size'], settings['elite_size'],
+                                    settings['mutate_rate'], settings['generations'],
+                                    settings['max_force'], settings['circles'])
+    result = genetic_algo.start_algorithm()
+    end_time = time.time()
+    print(f'TIME OF EXECUTION: {(end_time-start_time) / 60}')
+
+    print(result)
+    print(result)
+    print(result[-1].route)
+    print(result[-1].path)
+
+
+
+    draw_path_plot(genetic_algo.circles, result[-1].path)
+    draw_fitness_plot(settings, result)
+
+    '''
+    Circle(0.5, 0.5, 0.1), Circle(0.7, 0.7, 0.1), Circle(0.3, 0.7, 0.1),
+            Circle(0.3, 0.3, 0.1), Circle(0.7, 0.3, 0.1),
+            
+    Circle(0.5, 0.5, 0.2), Circle(0.7, 0.3, 0.2), Circle(0.3, 0.7, 0.2)
+    
+    Circle(0.5, 0.5, 0.1), Circle(0.7, 0.7, 0.15), Circle(0.3, 0.7, 0.15),
+            Circle(0.3, 0.3, 0.15), Circle(0.7, 0.3, 0.15),
+    
+    '''
 
