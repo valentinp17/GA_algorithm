@@ -1,5 +1,5 @@
-from individual import Individual
-from population import Population
+from src.genetic_logic.individual import Individual
+from src.genetic_logic.population import Population
 
 
 def create_primary_population(population_size, max_force):

@@ -1,6 +1,6 @@
 import random
 
-from vector2d import Vector2D
+from src.models.vector2d import Vector2D
 
 
 class Individual:

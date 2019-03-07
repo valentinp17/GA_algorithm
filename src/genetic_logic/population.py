@@ -1,6 +1,6 @@
 import random
 
-from individual import Individual
+from src.genetic_logic.individual import Individual
 
 
 class Population:
