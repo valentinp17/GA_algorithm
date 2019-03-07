@@ -7,8 +7,7 @@ class Individual:
     def __init__(self):
         self.position = Vector2D(0, 0)
         self.velocity = Vector2D(0, 0)
-        self.route = [Vector2D(0, 0)]
-        self.path = []
+        self.route = []
         self.fitness = 0
 
     def distance(self, other):
@@ -17,7 +16,7 @@ class Individual:
     def add_step(self, step):
         self.route.append(step)
 
-    def check_collisions(self, circles):
+    def check_collisions(self, circles, prev_position):
         if self.position.x < 0 or self.position.x > 1 or \
                 self.position.y < 0 or self.position.y > 1:
             return True
@@ -25,10 +24,9 @@ class Individual:
         for circle in circles:
             if self.position.distance(circle.position) < circle.radius:
                 return True
-            if Vector2D.get_dist_to_line(self.position, self.path[-1], circle.position) < circle.radius:
+            if Vector2D.get_dist_to_line(self.position, prev_position, circle.position) < circle.radius:
                 return True
         return False
-
 
 
     def __repr__(self):
@@ -40,16 +38,28 @@ class Individual:
         if self.fitness == 0:
             count_path = 0
             for step in self.route:
-                self.path.append(self.position)
+                prev_position = self.position
                 self.position = self.position.add(self.velocity)
                 self.velocity = self.velocity.add(step)
-                if self.check_collisions(circles):
+                if self.check_collisions(circles, prev_position):
                     self.fitness = 1 / (self.position.distance(Vector2D(1, 1))*0.5 + count_path*0.5)
                     return self.fitness
 
                 count_path += step.length()
             self.fitness = 1 / (self.position.distance(Vector2D(1, 1))*0.5 + count_path*0.5)
         return self.fitness
+
+    def get_path(self, circles):
+        indiv = Individual()
+        new_path = []
+        for step in self.route:
+            new_path.append(indiv.position)
+            prev_position = indiv.position
+            indiv.position = indiv.position.add(indiv.velocity)
+            indiv.velocity = indiv.velocity.add(step)
+            if indiv.check_collisions(circles, prev_position):
+                return new_path
+        return new_path
 
     def mutate_change_step(self, max_force):
         rand = random.randint(0, len(self.route) - 1)
